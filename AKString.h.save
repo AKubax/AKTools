@@ -1,7 +1,7 @@
 #ifndef AKString_FILE
 #define AKString_FILE
 
-#
+//#include <TXLib.h>
 
 #include <inttypes.h>
 #include <string.h>
@@ -15,12 +15,119 @@ int max(int a, int b){
 }
 
 
-
-class AKString{
+class AKStringKernel{
 private:
     char* ptr;
     size_t nowSize;
     size_t maxSize;
+public:
+    AKStringKernel(const char* str);
+    AKStringKernel(const char* str, size_t maxLen);
+    explicit AKStringKernel(size_t len);
+    AKStringKernel(const AKString& astr);
+    AKStringKernel(const char* str, size_t copyLen, size_t maxLen);
+
+    ~AKStringKernel();
+
+
+
+    const char* c_str() const;
+
+    void resize(size_t len);
+    void update(const char* str, bool haveResize = true);
+};
+
+//-----------------------------------------------------------------------------
+
+AKString::AKString(const char* str):
+    ptr (strdup(str)),
+    nowSize (strlen(ptr)),
+    maxSize (nowSize)
+{}
+
+AKString::AKString(const char* str, size_t maxLen):
+    ptr (NULL),
+    nowSize (strlen(str)),
+    maxSize (0)  //It will be defined
+{
+    resize( max(maxLen, nowSize) );
+    strncpy(ptr, str, maxSize);
+}
+
+AKString::AKString(const char* str, size_t copyLen, size_t maxLen):
+    ptr (NULL),
+    nowSize (strlen(str)),
+    maxSize (0)  //It will be defined
+{
+    resize( max(maxLen, nowSize) );
+    strncpy(ptr, str, copyLen);
+    ptr[copyLen] = '\0';
+}
+
+AKString::AKString(size_t maxLen):
+    ptr (NULL),
+    nowSize (0), //It's right
+    maxSize (0)  //It will be defined in resize()
+{
+    resize(maxLen);
+}
+
+AKString::AKString(const AKString& astr):
+    ptr (NULL),
+    nowSize (0),    //It will be defined
+    maxSize (0)     //It will be defined
+{
+    update(astr.ptr);
+}
+
+AKString::~AKString() {
+    free(ptr);
+    ptr = NULL;
+}
+
+void AKString::resize(size_t len){
+    bool isNeeded = false;
+
+    if(len < maxSize * 0.5){
+        maxSize = (int) (maxSize * 0.7 + 1);
+        isNeeded = true;
+    }
+
+    if(len > maxSize){
+        maxSize = (int) (len * 1.2 + 1);
+        isNeeded = true;
+    }
+
+
+    if(isNeeded){
+        char* res = (char*) ( realloc(ptr, maxSize * sizeof(char)) );
+
+        if(res == NULL){
+            throw std::runtime_error("realloc() doesn't have enough memory");
+        }
+
+        ptr = res;
+        ptr[maxSize - 1] = '\0';
+    }
+}
+
+void AKString::update(const char* str, bool haveResize /*= true*/){
+    int len = strlen(str);
+
+    if(haveResize || len >= maxSize)
+        resize(len);
+
+    strncpy(ptr, str, maxSize);
+    nowSize = len;
+}
+
+//{============================================================================
+//!
+//}============================================================================
+
+class AKString{
+private:
+    AKStringKernel krn;
 
 public:
     AKString(const char* str);
@@ -30,12 +137,6 @@ public:
     AKString(const char* str, size_t copyLen, size_t maxLen);
 
     ~AKString();
-
-
-    const char* c_str() const;
-
-    void resize(size_t len);
-    void update(const char* str);
 
     void add(const char* str);
     AKString substr(size_t begin, size_t end);
@@ -126,57 +227,12 @@ public:
 };
 
 
-//-----------------------------------------------------------------------------
-//=============================================================================
 
 
 
 
-AKString::AKString(const char* str):
-    ptr (strdup(str)),
-    nowSize (strlen(ptr)),
-    maxSize (nowSize)
-{}
 
-AKString::AKString(const char* str, size_t maxLen):
-    ptr (NULL),
-    nowSize (strlen(str)),
-    maxSize (0)  //It will be defined
-{
-    resize( max(maxLen, nowSize) );
-    strncpy(ptr, str, maxSize);
-}
 
-AKString::AKString(const char* str, size_t copyLen, size_t maxLen):
-    ptr (NULL),
-    nowSize (strlen(str)),
-    maxSize (0)  //It will be defined
-{
-    resize( max(maxLen, nowSize) );
-    strncpy(ptr, str, copyLen);
-    ptr[copyLen] = '\0';
-}
-
-AKString::AKString(size_t maxLen):
-    ptr (NULL),
-    nowSize (0), //It's right
-    maxSize (0)  //It will be defined in resize()
-{
-    resize(maxLen);
-}
-
-AKString::AKString(const AKString& astr):
-    ptr (NULL),
-    nowSize (0),    //It will be defined
-    maxSize (0)     //It will be defined
-{
-    update(astr.ptr);
-}
-
-AKString::~AKString() {
-    free(ptr);
-    ptr = NULL;
-}
 
 //-----------------------------------------------------------------------------
 
@@ -188,46 +244,12 @@ void AKString::dump() const{
     printf("} \n\n");
 }
 
-const char* AKString::c_str() const{
-    return ptr;
-}
+
 
 //-----------------------------------------------------------------------------
 
-void AKString::resize(size_t len){
-    bool isNeeded = false;
-
-    if(len < maxSize * 0.5){
-        maxSize = (int) (maxSize * 0.7 + 1);
-        isNeeded = true;
-    }
-
-    if(len > maxSize){
-        maxSize = (int) (len * 1.2 + 1);
-        isNeeded = true;
-    }
-
-
-    if(isNeeded){
-        char* res = (char*) ( realloc(ptr, maxSize * sizeof(char)) );
-
-        if(res == NULL){
-            throw std::runtime_error("realloc() doesn't have enough memory");
-        }
-
-        ptr = res;
-        ptr[maxSize - 1] = '\0';
-    }
-}
-
-void AKString::update(const char* str, bool haveResize = true){
-    int len = strlen(str);
-
-    if(haveResize || len >= maxSize)
-        resize(len);
-
-    strncpy(ptr, str, maxSize);
-    nowSize = len;
+const char* AKString::c_str() const{
+    return ptr;
 }
 
 //-----------------------------------------------------------------------------

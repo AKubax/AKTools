@@ -1,7 +1,7 @@
 #ifndef AKString_FILE
 #define AKString_FILE
 
-//#include <TXLib.h>
+#include <TXLib.h>
 
 #include <inttypes.h>
 #include <string.h>
@@ -15,119 +15,147 @@ int max(int a, int b){
 }
 
 
+
+
+
+//=============================================================================
+//{  Kernel for AKString
+
 class AKStringKernel{
 private:
     char* ptr;
     size_t nowSize;
     size_t maxSize;
+
+    bool isDynamic(size_t len) const;
+    bool isDynamic() const;
 public:
     AKStringKernel(const char* str);
     AKStringKernel(const char* str, size_t maxLen);
     explicit AKStringKernel(size_t len);
-    AKStringKernel(const AKString& astr);
     AKStringKernel(const char* str, size_t copyLen, size_t maxLen);
 
     ~AKStringKernel();
 
+    const char* data() const;
+    char* data();
 
-
-    const char* c_str() const;
+    size_t size() const;
 
     void resize(size_t len);
     void update(const char* str, bool haveResize = true);
 };
 
-//-----------------------------------------------------------------------------
+//=============================================================================
 
-AKString::AKString(const char* str):
-    ptr (strdup(str)),
-    nowSize (strlen(ptr)),
-    maxSize (nowSize)
-{}
+    AKStringKernel::AKStringKernel(const char* str):
+        ptr (strdup(str)),
+        nowSize (strlen(ptr)),
+        maxSize (nowSize)
+    {}
 
-AKString::AKString(const char* str, size_t maxLen):
-    ptr (NULL),
-    nowSize (strlen(str)),
-    maxSize (0)  //It will be defined
-{
-    resize( max(maxLen, nowSize) );
-    strncpy(ptr, str, maxSize);
-}
-
-AKString::AKString(const char* str, size_t copyLen, size_t maxLen):
-    ptr (NULL),
-    nowSize (strlen(str)),
-    maxSize (0)  //It will be defined
-{
-    resize( max(maxLen, nowSize) );
-    strncpy(ptr, str, copyLen);
-    ptr[copyLen] = '\0';
-}
-
-AKString::AKString(size_t maxLen):
-    ptr (NULL),
-    nowSize (0), //It's right
-    maxSize (0)  //It will be defined in resize()
-{
-    resize(maxLen);
-}
-
-AKString::AKString(const AKString& astr):
-    ptr (NULL),
-    nowSize (0),    //It will be defined
-    maxSize (0)     //It will be defined
-{
-    update(astr.ptr);
-}
-
-AKString::~AKString() {
-    free(ptr);
-    ptr = NULL;
-}
-
-const char* AKString::c_str() const{
-    return ptr;
-}
-
-void AKString::resize(size_t len){
-    bool isNeeded = false;
-
-    if(len < maxSize * 0.5){
-        maxSize = (int) (maxSize * 0.7 + 1);
-        isNeeded = true;
+    AKStringKernel::AKStringKernel(const char* str, size_t maxLen):
+        ptr (NULL),
+        nowSize (strlen(str)),
+        maxSize (0)  //It will be defined
+    {
+        resize( max(maxLen, nowSize) );
+        strncpy(ptr, str, maxSize);
     }
 
-    if(len > maxSize){
-        maxSize = (int) (len * 1.2 + 1);
-        isNeeded = true;
+    AKStringKernel::AKStringKernel(const char* str, size_t copyLen, size_t maxLen):
+        ptr (NULL),
+        nowSize (strlen(str)),
+        maxSize (0)  //It will be defined
+    {
+        resize( max(maxLen, nowSize) );
+        strncpy(ptr, str, copyLen);
+        ptr[copyLen] = '\0';
+    }
+
+    AKStringKernel::AKStringKernel(size_t maxLen):
+        ptr (NULL),
+        nowSize (0), //It's right
+        maxSize (0)  //It will be defined in resize()
+    {
+        resize(maxLen);
+    }
+
+    AKStringKernel::~AKStringKernel() {
+        free(ptr);
+        ptr = NULL;
     }
 
 
-    if(isNeeded){
-        char* res = (char*) ( realloc(ptr, maxSize * sizeof(char)) );
 
-        if(res == NULL){
-            throw std::runtime_error("realloc() doesn't have enough memory");
+    bool AKStringKernel::isDynamic(size_t len) const{
+        return true; //len * sizeof(char) > sizeof(ptr);                     !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    }
+    bool AKStringKernel::isDynamic() const{
+        return isDynamic(maxSize);
+    }
+
+
+    const char* AKStringKernel::data() const{
+        if(isDynamic()) return ptr;
+
+        else   return (char*) &ptr;
+    }
+
+    char* AKStringKernel::data(){
+        return (char*) ((const AKStringKernel*) (this))->data();
+    }
+
+    size_t AKStringKernel::size() const{
+        return nowSize;
+    }
+
+
+    void AKStringKernel::resize(size_t len){
+        bool isNeeded = false;
+
+        if(len < maxSize * 0.5){
+            maxSize = (int) (maxSize * 0.7 + 1);
+            isNeeded = true;
         }
 
-        ptr = res;
-        ptr[maxSize - 1] = '\0';
+        if(len > maxSize){
+            maxSize = (int) (len * 1.2 + 1);
+            isNeeded = true;
+        }
+
+
+        if(isNeeded){
+            if(isDynamic() && isDynamic(len)){
+                char* res = (char*) ( realloc(ptr, maxSize * sizeof(char)) );
+
+                if(res == NULL){
+                    throw std::runtime_error("realloc() doesn't have enough memory");                 //TODO 4 cases
+                }
+
+                ptr = res;
+                ptr[maxSize - 1] = '\0';
+            }
+            //else if(true);                       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        }
     }
-}
 
-void AKString::update(const char* str, bool haveResize /*= true*/){
-    int len = strlen(str);
+    void AKStringKernel::update(const char* str, bool haveResize /*= true*/){
+        int len = strlen(str);
 
-    if(haveResize || len >= maxSize)
-        resize(len);
+        if(haveResize || len >= maxSize)
+            resize(len);
 
-    strncpy(ptr, str, maxSize);
-    nowSize = len;
-}
+        strncpy(ptr, str, maxSize);
+        nowSize = len;
+    }
 
-//{============================================================================
-//!
-//}============================================================================
+//}
+//=============================================================================
+
+
+//=============================================================================
+//{  Shell for AKString
 
 class AKString{
 private:
@@ -142,10 +170,19 @@ public:
 
     ~AKString();
 
+    const char* c_str() const;
+
+    const char* data() const;
+    char* data();
+
     void add(const char* str);
+
     AKString substr(size_t begin, size_t end);
+
     size_t size() const;
+
     void clear();
+
     bool isEqual(const AKString& astr) const;
     bool isEqual(const char* str) const;
 
@@ -159,11 +196,11 @@ public:
 
 
     AKString& operator = (const char* str){
-        update(str);
+        krn.update(str);
         return *this;
     }
     AKString& operator = (const AKString& astr){
-        update(astr.ptr);
+        krn.update(astr.c_str());
         return *this;
     }
 
@@ -202,35 +239,50 @@ public:
     }
 
     bool operator > (const AKString& astr) const{
-        return (strcmp(ptr, astr.ptr) > 0);
+        return (strcmp(c_str(), astr.c_str()) > 0);
     }
     bool operator > (const char* str) const{
-        return (strcmp(ptr, str) > 0);
+        return (strcmp(c_str(), str) > 0);
     }
 
     bool operator < (const AKString& astr) const{
-        return (strcmp(ptr, astr.ptr) < 0);
+        return (strcmp(c_str(), astr.c_str()) < 0);
     }
     bool operator < (const char* str) const{
-        return (strcmp(ptr, str) < 0);
+        return (strcmp(c_str(), str) < 0);
     }
 
     bool operator >= (const AKString& astr) const{
-        return (strcmp(ptr, astr.ptr) >= 0);
+        return (strcmp(c_str(), astr.c_str()) >= 0);
     }
     bool operator >= (const char* str) const{
-        return (strcmp(ptr, str) >= 0);
+        return (strcmp(c_str(), str) >= 0);
     }
 
     bool operator <= (const AKString& astr) const{
-        return (strcmp(ptr, astr.ptr) <= 0);
+        return (strcmp(c_str(), astr.c_str()) <= 0);
     }
     bool operator <= (const char* str) const{
-        return (strcmp(ptr, str) <= 0);
+        return (strcmp(c_str(), str) <= 0);
     }
 };
 
 
+AKString::AKString(const char* str):
+    krn (AKStringKernel(str))
+{}
+
+AKString::AKString(const char* str, size_t maxLen):
+    krn (AKStringKernel(str, maxLen))
+{}
+
+AKString::AKString(size_t len):
+    krn (AKStringKernel(len))
+{}
+
+AKString::AKString(const char* str, size_t copyLen, size_t maxLen):
+    krn (AKStringKernel(str, copyLen, maxLen))
+{}
 
 
 
@@ -238,69 +290,79 @@ public:
 
 
 
-//-----------------------------------------------------------------------------
+//{
+//void AKString::dump() const{
+//    printf("\n AKString{ \n");
+//    printf("\t ptr : \"%s\"  (ptr pointer is 0x%p) \n", ptr, &ptr);
+//    printf("\t nowSize : %lu \n", (unsigned long) nowSize);
+//    printf("\t maxSize : %lu \n", (unsigned long) maxSize);                  //TODO Come up how to do it with kernel
+//    printf("} \n\n");
+//}
 
-void AKString::dump() const{
-    printf("\n AKString{ \n");
-    printf("\t ptr : \"%s\"  (ptr pointer is 0x%p) \n", ptr, &ptr);
-    printf("\t nowSize : %lu \n", (unsigned long) nowSize);
-    printf("\t maxSize : %lu \n", (unsigned long) maxSize);
-    printf("} \n\n");
+
+const char* AKString::data() const{
+    return krn.data();
+}
+
+char* AKString::data(){
+    krn.data();
 }
 
 
+const char* AKString::c_str() const{
+    return data();
+}
 
-//-----------------------------------------------------------------------------
-
-
-//-----------------------------------------------------------------------------
 
 void AKString::add(const char* str){
-    resize(nowSize + strlen(str));
-    strncat(ptr, str, maxSize);
+    krn.resize(size() + strlen(str));
+    strcpy(data() + size(), str);
 }
 
 AKString AKString::substr(size_t begin, size_t end){
-    return AKString(ptr + begin, end - begin + 1, 0);
+    std::string substr = c_str();
+    return substr.substr(begin, end - begin).c_str();
 }
 
 size_t AKString::size() const{
-    return nowSize;
+    return krn.size();
 }
 
 void AKString::clear(){
-    update("", false);
+    krn.update("", false);
 }
 
 
 
 bool AKString::isEqual(const AKString& astr) const{
-    if(astr.nowSize != nowSize){
-        return false;
-    }
-    return (strcmp(astr.ptr, ptr) == 0);
+    if(size() != astr.size()) return false;
+
+    return (strcmp(c_str(), astr.c_str()) == 0);
 }
 
 bool AKString::isEqual(const char* str) const{
-    return (strcmp(str, ptr) == 0);
+    if(size() != strlen(str)) return false;
+
+    return (strcmp(c_str(), str) == 0);
 }
 
 //-----------------------------------------------------------------------------
 
 char& AKString::charAt(size_t index){
-    if(index >= nowSize)
+    if(index >= size())
         throw std::runtime_error("Invalid index for this AKString");
 
-    return ptr[index];
+    return krn.data()[index];
 }
 
 const char& AKString::charAt(size_t index) const{
-    if(index >= nowSize)
+    if(index >= size())
         throw std::runtime_error("Invalid index for this AKString");
 
-    return ptr[index];
+    return krn.data()[index];
 }
-
+//}
+//=============================================================================
 
 
 #endif

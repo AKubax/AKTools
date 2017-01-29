@@ -10,6 +10,8 @@
 #include <exception>
 #include <stdexcept>
 
+#define prdo(str) {printf("Doing action: %s \n", #str); {str;}}
+
 int max(int a, int b){
     return a > b? a : b;
 }
@@ -24,7 +26,7 @@ int max(int a, int b){
 class AKStringKernel{
 private:
     char* ptr;
-    size_t nowSize;
+    size_t nowLen;
     size_t maxSize;
 
     bool isDynamic(size_t len) const;
@@ -41,7 +43,7 @@ public:
     const char* data() const;
     char* data();    //TODO make it private
 
-    void dump() const;
+    void dump(const char* str = "") const;
 
     size_t size() const;
 
@@ -53,8 +55,8 @@ public:
 
 AKStringKernel::AKStringKernel(const char* str, size_t copyLen, size_t bufLen):
     ptr (NULL),
-    nowSize (copyLen), //It will be defined in update
-    maxSize (bufLen)  //It will be defined in resize
+    nowLen (0), //It will be defined in update
+    maxSize (0)  //It will be defined in resize
 {
     if(copyLen > bufLen) std::runtime_error("CopyLen can't be greater than bufLen");
 
@@ -63,14 +65,15 @@ AKStringKernel::AKStringKernel(const char* str, size_t copyLen, size_t bufLen):
 }
 
 AKStringKernel::~AKStringKernel() {
-    free(ptr);
+    if(isDynamic()) free(ptr);
+
     ptr = NULL;
 }
 
 
 
-bool AKStringKernel::isDynamic(size_t len) const{
-    return len * sizeof(char) > sizeof(ptr);
+bool AKStringKernel::isDynamic(size_t size) const{
+    return (size) * sizeof(char) > sizeof(ptr);
 }
 bool AKStringKernel::isDynamic() const{
     return isDynamic(maxSize);
@@ -88,27 +91,62 @@ char* AKStringKernel::data(){
 }
 
 size_t AKStringKernel::size() const{
-    return nowSize;
+    return nowLen;
 }
 
 
 
 
-void AKStringKernel::dump() const{
-    printf("\n AKString{ \n");
-    if(isDynamic()) printf("\t ptr pointer : 0x%p  |  ptr : \"%s\" (dynamic) \n", ptr, ptr);
-    else            printf("\t ptr pointer : 0x%p  |  ptr : \"%s\" (static) \n", &ptr, &ptr);
-    printf("\t nowSize     : %lu \n", (unsigned long) nowSize);
-    printf("\t maxSize     : %lu \n", (unsigned long) maxSize);
-    printf("} \n\n");
+void AKStringKernel::dump(const char* str /*= ""*/) const{
+    printf(           "\n" "AKString [0x%p]{ // %s\n", this, str);
+    if(isDynamic()) printf("    ptr     0x%p | \"%s\" (dynamic) \n",          ptr, ptr);
+    else            printf("    ptr     0x%p | \"%s\" (static), &ptr 0x%p\n", ptr, &ptr, &ptr);
+    printf(                "    nowLen  %lu \n", (unsigned long) nowLen);
+    printf(                "    maxSize %lu \n", (unsigned long) maxSize);
+    printf(                "} \n\n\n\n");
 }
 
 
 void AKStringKernel::resize(size_t len, bool smart /*= true*/){        //It cares about zero symbol
     bool isNeeded = false;
+    len++;
+
+    bool isPrevDynamic = isDynamic(maxSize);
+    bool isNextDynamic = isDynamic(len);
+
+    size_t nextSize = -1u;
 
     if(smart){
-        if(len < sizeof(ptr)){
+        if(isNextDynamic){
+            if(len < maxSize * 0.7){
+                nextSize = len * 1.3;
+                isNeeded = true;
+            }
+
+            else if(len > maxSize){
+                nextSize = len * 1.3;
+                isNeeded = true;
+            }
+        }
+
+        else{
+            nextSize = sizeof(ptr);
+            isNeeded = isPrevDynamic;
+        }
+    }
+
+    else{
+        nextSize = nextSize < 4? 4 : len;
+        isNeeded = true;
+    }
+
+/*
+    if(smart){
+        if(!isDynamic()){
+
+        }
+
+        if(len < sizeof(ptr) - 1){
             maxSize = sizeof(ptr);
             isNeeded = true;
         }
@@ -132,44 +170,74 @@ void AKStringKernel::resize(size_t len, bool smart /*= true*/){        //It care
         maxSize = len;
         isNeeded = true;
     }
+*/
 
     if(isNeeded){
-        if(isDynamic() && isDynamic(len)){
-            char* res = (char*) ( realloc(ptr, maxSize * sizeof(char)) );
-            memset(res + nowSize, '\0', (maxSize - nowSize) * sizeof(char));
+//        printf("isDynamic() returns %d, isDynamic(len) returns %d, len is %lu, nextSize is %lu \n\n", isDynamic(), isDynamic(len), (unsigned long) len, (unsigned long) nextSize);
+
+        if(isPrevDynamic && isNextDynamic){
+          printf("Case: Dynamic -> Dynamic");
+
+            char* res = (char*) ( realloc(ptr, nextSize * sizeof(char)) );
+            memset(res + nowLen, '\0', (nextSize - nowLen) * sizeof(char));
 
             if(res == NULL){
                 throw std::runtime_error("realloc() doesn't have enough memory");
             }
 
             ptr = res;
-            ptr[maxSize - 1] = '\0';
+            ptr[nextSize - 1] = '\0';
+
+            maxSize = nextSize;
         }
 
-        if(isDynamic() && !isDynamic(len)){
+        if(isPrevDynamic && !isNextDynamic){
+            printf("Case: Dynamic -> Static");
+
             char* str = ptr;
 
             ptr = 0;
             strncpy((char*) &ptr, str, sizeof(ptr) - 1);
 
             free(str);
+
+            maxSize = sizeof(ptr);
         }
 
-        if(!isDynamic() && isDynamic(len)){
-            char* str = ptr;
+        if(!isPrevDynamic && isNextDynamic){
+            printf("Case: Static -> Dynamic\n");
+            printf("nextSize: %u \n", nextSize);
+//            dump("Before copy");
 
-            ptr = (char*) calloc(len + 1, sizeof(char));          //TODO Use = (int) instead of strcpy
-            strncpy(ptr, str, len);
+            uintptr_t str = (uintptr_t) ptr;
+//            printf("str is 0x%p \"%s\" \n", str, (const char*) &str);
+
+            ptr = (char*) calloc(nextSize, sizeof(char));        //TODO Use = (int) instead of strcpy
+            strncpy(ptr, (const char*) &str, len);
+
+            maxSize = nextSize;
+//
+//            dump("After copy");
+        }
+
+        if(!isPrevDynamic && !isNextDynamic){
+            printf("Case: Static -> Static");
+
+            maxSize = sizeof(ptr);
         }
     }
 
 }
 
 void AKStringKernel::update(const char* str, size_t copyLen, bool haveResize /*= true*/){
-    if(haveResize && copyLen >= maxSize)
+    size_t strLen = strlen(str);
+
+    if(copyLen > strLen)  copyLen = strLen;
+
+    if(haveResize)
         resize(copyLen);
 
-    nowSize = copyLen;
+    nowLen = copyLen;
     strncpy(data(), str, copyLen);
 }
 
@@ -318,7 +386,7 @@ AKString::~AKString()
 //void AKString::dump() const{
 //    printf("\n AKString{ \n");
 //    printf("\t ptr : \"%s\"  (ptr pointer is 0x%p) \n", ptr, &ptr);
-//    printf("\t nowSize : %lu \n", (unsigned long) nowSize);
+//    printf("\t nowLen : %lu \n", (unsigned long) nowLen);
 //    printf("\t maxSize : %lu \n", (unsigned long) maxSize);
 //    printf("} \n\n");
 //}

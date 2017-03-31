@@ -1,5 +1,0 @@
-AKString:
-    operator + ; +=
-    look for ideas in standard class std::string
-
-define for printing then doing

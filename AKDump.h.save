@@ -18,7 +18,7 @@
 //{  AKFuncTab
 class AKFuncTab{
 public:
-    static int level;
+    static unsigned int level;
 
     AKFuncTab(){
         level++;
@@ -29,7 +29,7 @@ public:
     }
 };
 
-int AKFuncTab::level = 0;
+unsigned int AKFuncTab::level = 0;
 
 //}
 //=============================================================================
@@ -66,11 +66,6 @@ unsigned int GlobalDebugLevel = DEBUG_LVL;
 
 #define PRINTVAR(varname)   {printvar(#varname, varname);}
 
-void printvar(const char* varname, int var);
-void printvar(const char* varname, int var){
-    printf("%s : %d\n", varname, var);
-}
-
 void printvar(const char* varname, long var);
 void printvar(const char* varname, long var){
     printf("%s : %ld\n", varname, var);
@@ -86,11 +81,6 @@ void printvar(const char* varname, unsigned long var){
     printf("%s : %lu\n", varname, var);
 }
 
-void printvar(const char* varname, unsigned long long var);
-void printvar(const char* varname, unsigned long long var){
-    printf("%s : %zu\n", varname, var);
-}
-
 void printvar(const char* varname, double var);
 void printvar(const char* varname, double var){
     printf("%s : %lf\n", varname, var);
@@ -98,7 +88,7 @@ void printvar(const char* varname, double var){
 
 void printvar(const char* varname, ptrdiff_t var);
 void printvar(const char* varname, ptrdiff_t var){
-    printf("%s : %lld\n", varname, (long long) var);
+    printf("%s : %d\n", varname, var);
 }
 
 void printvar(const char* varname, char* var);

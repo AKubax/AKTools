@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <utility>
 
-const char* loadFileToBuf(FILE* file, char* buf = 0, unsigned int size = 0);
+std::pair<const char*, size_t> loadFileToBuf(FILE* file, char* buf = 0, unsigned int size = 0);
 
 
 std::pair<const char*, size_t> loadFileToBuf(FILE* file, char* buf, unsigned int size){

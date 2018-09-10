@@ -1,7 +1,7 @@
 #ifndef AKString_FILE
 #define AKString_FILE
 
-#include "D:\PROграмминг\TX\TXLib.h"
+#include <TXLib.h>
 #pragma GCC diagnostic ignored "-Wconversion"
 #pragma GCC diagnostic ignored "-Wnonnull-compare"
 

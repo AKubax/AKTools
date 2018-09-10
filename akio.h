@@ -9,7 +9,7 @@
 #define DEBUG_LOG_MODE 0
 #define DEBUG_LOG_PATH stdout
 
-#define printd(...) { if(DEBUG_LOG_MODE) fprintf(DEBUG_LOG_PATH, __VA_ARGS__); else fprintf(DEBUG_LOG_PATH, "DEBUG OFF\n");}
+#define printd(...) ( (DEBUG_LOG_MODE)? fprintf(DEBUG_LOG_PATH, "# " __VA_ARGS__) : fprintf(DEBUG_LOG_PATH, "# DEBUG OFF\n") )
 
 std::pair<const char*, size_t> writeFileToBuf(FILE* file, char* buf = 0, unsigned int size = 0);
 size_t writeBufToFile(const char* buf, unsigned int size, FILE* file);

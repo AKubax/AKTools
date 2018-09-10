@@ -1,7 +1,7 @@
 #ifndef AKDump_FILE
 #define AKDump_FILE
 
-#include "D:\PROграмминг\TX\TXLib.h"
+#include <TXLib.h>
 
 #define AKDUMP(classname, code)   void dump(const char* msg = "") const{\
                                     printf("%s [0x%p]{ //%s\n", #classname, this, msg);\
@@ -51,7 +51,7 @@ int AKFuncTab::level = 0;
 #define $1                  AKFuncTab __________AKEntryObject__________; $
 
 #else
-#define DUMP(str)   {}
+#define DUMP(lvl, source, str)   {}
 #define PRINTD(...) {}
 #define $           {}
 #define $1          {}

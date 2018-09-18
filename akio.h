@@ -12,7 +12,7 @@
 #define printd(...) ( (DEBUG_LOG_MODE)? fprintf(DEBUG_LOG_PATH, "# " __VA_ARGS__) : fprintf(DEBUG_LOG_PATH, "# DEBUG OFF\n") )
 
 std::pair<const char*, size_t> writeFileToBuf(FILE* file, char* buf = 0, unsigned int size = 0);
-size_t writeBufToFile(const char* buf, unsigned int size, FILE* file);
+size_t writeBufToFile(const char* buf, size_t size, FILE* file);
 
 std::pair<const char*, size_t> writeFileToBuf(FILE* file, char* buf, unsigned int size){
     unsigned int charToRead = size? size : filelength(fileno(file));
@@ -23,7 +23,7 @@ std::pair<const char*, size_t> writeFileToBuf(FILE* file, char* buf, unsigned in
 }
 
 
-size_t writeBufToFile(const char* buf, unsigned int size, FILE* file){
+size_t writeBufToFile(const char* buf, size_t size, FILE* file){
     return fwrite(buf, 1, size, file);
 }
 

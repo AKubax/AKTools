@@ -10,9 +10,13 @@
 #include <stdio.h>
 #include <exception>
 #include <stdexcept>
+#include <functional>
 
 #include "..\AKTools\AKString.h"
 #include "..\AKTools\AKDump.h"
+
+
+const size_t SomeConst = 0xBEDABEDA;
 
 AKString getVarStr(int var);
 AKString getVarStr(double var);
@@ -25,20 +29,38 @@ public:
     {}
 };
 
+size_t hash(const void* buf, size_t sz);
+size_t hash(const void* buf, size_t sz){
+    size_t sum = 0;
+    for(size_t i = 0; i < sz; i++) sum ^= ((const char*) buf)[i] * i;
+    return sum;
+}
+
 template <class T>
 class AKVector{
-private:
+public:
+    size_t CANARY_begin = ((size_t) this) ^ SomeConst;
 
     T* buf_ = 0;
+
     size_t capacity_ = 0;
     size_t size_ = 0;
 
-public:
+    size_t bufCanary = 0;
+    size_t checkSumBuf = 0;
+    const size_t checkSum;
+
+    size_t CANARY_end = ((size_t) this) ^ SomeConst;
+
+//public:
 
     AKVector(size_t capacity = 0);
     AKVector(const AKVector& vec) = delete;
 
 	~AKVector();
+
+    void bufLock();
+    bool bufCheck() const;
 
     void reserve(size_t capacity);
     void push_back(T var);
@@ -46,6 +68,8 @@ public:
     T back();
 
     T* data();
+    T* begin();
+    T* end();
 
     void clear();
     bool isEmpty();
@@ -75,29 +99,49 @@ public:
 //!
 //}----------------------------------------------------------------------------
 
+//=============================================================================
+
 template <typename T>
 AKVector<T>::AKVector(size_t capacity):
-    buf_ (capacity > 0? new T[capacity] : NULL),
-    capacity_   (capacity)
+    buf_ (capacity > 0? new T[capacity + 2] + 1 : NULL),
+    capacity_   (capacity),
+    checkSum (hash(this, sizeof(AKVector<T>)))
 {}
 
 template <typename T>
 AKVector<T>::~AKVector() {
-	delete[] buf_;
+	delete[] (buf_ - 1);
 }
 
 //-----------------------------------------------------------------------------
+
+template <class T>
+void AKVector<T>::bufLock(){
+    checkSumBuf = hash(buf_, capacity_);
+}
+
+template <class T>
+bool AKVector<T>::bufCheck() const{
+    return checkSumBuf == hash(buf_, capacity_);
+}
 
 template <typename T>
 void AKVector<T>::reserve(size_t capacity){
     if     (capacity <= capacity_) return;
 
     else{
-        T* prevBuf = buf_;
-        buf_ = new T[capacity];
-        std::copy(prevBuf, prevBuf + size_, buf_);
+        T* prevBuf = buf_ - 1;
+        buf_ = (new T[capacity + 2]) + 1;
+        std::copy(prevBuf + 1, prevBuf + 1 + size_, buf_);
 		delete[] prevBuf;
         capacity_ = capacity;
+
+        bufCanary = (size_t) buf_ ^ SomeConst;
+
+        (buf_ - 1)[0]         = bufCanary;
+        (buf_ + capacity_)[0] = bufCanary;
+
+        bufLock();
     }
 }
 
@@ -143,6 +187,16 @@ bool AKVector<T>::isEmpty(){
 }
 
 template <typename T>
+T* AKVector<T>::begin(){
+    return data();
+}
+
+template <typename T>
+T* AKVector<T>::end(){
+    return data() + size();
+}
+
+template <typename T>
 T& AKVector<T>::at(long pos){
     if(!(0 <= pos && (size_t) pos < capacity_)) throw std::runtime_error("Wrong argument in func at()");
 
@@ -168,10 +222,17 @@ AKString AKVector<T>::toString() const{
 template <typename T>
 bool AKVector<T>::ok() const{
     bool isOK = true;
+    int errNum = 0;
 
-    if(!(0 <= size_ && size_ <= capacity_)) { isOK = false; PRINTD(4, "ok() failed on this: if(!(0 <= size_ && size_ <= capacity_))\n"); }
-    if((buf_ == NULL) ^  (capacity_ == 0))     { isOK = false; PRINTD(4, "if(!(buf_ == NULL && capacity_ == 0))\n"); }
+    if(!(0 <= size_ && size_ <= capacity_)) { isOK = false; errNum = 1; PRINTD(4, "ok() failed on this: if(!(0 <= size_ && size_ <= capacity_))\n"); }
+    if((buf_ == NULL) ^  (capacity_ == 0))  { isOK = false; errNum = 2;PRINTD(4, "if(!(buf_ == NULL && capacity_ == 0))\n"); }
 
+    if(!(CANARY_begin == CANARY_end && CANARY_begin == ( ((size_t) this) ^ SomeConst ) ))      { isOK = 0; errNum = 3; }
+    if(checkSum != hash(this, sizeof(AKVector<T>)))                                           { isOK = 0; errNum = 4; }
+
+    isOK &= bufCheck();
+
+    if(!isOK) printf("ok() returns false. errNum = %d\n", errNum? errNum : 5);
     return isOK;
 }
 

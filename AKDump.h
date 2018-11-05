@@ -101,6 +101,11 @@ void printvar(const char* varname, ptrdiff_t var){
     printf("%s : %lld\n", varname, (long long) var);
 }
 
+void printvar(const char* varname, const char var);
+void printvar(const char* varname, const char var){
+    printf("%s : %c[%d]\n", varname, var, var);
+}
+
 void printvar(const char* varname, char* var);
 void printvar(const char* varname, char* var){
     printf("%s : \"%s\"\n", varname, var);

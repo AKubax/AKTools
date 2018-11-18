@@ -1,5 +1,26 @@
+#include <TXLib.h>
 #include <cstdio>
 #include <stdexcept>
+#include <windows.h>
+
+
+CRITICAL_SECTION CriticalSection = {};
+
+class Lock{
+private:
+    CRITICAL_SECTION* cs_;
+
+public:
+    Lock(CRITICAL_SECTION* cs):
+        cs_ (cs)
+    {
+        EnterCriticalSection(cs_);
+    }
+
+    ~Lock(){
+        LeaveCriticalSection(cs_);
+    }
+};
 
 template <class T>
 T getPoison();
@@ -43,6 +64,14 @@ public:
 
     void push(T arg);
     T pop();
+
+    T* getBegin();
+    T* getEnd();
+
+    T* getBuf();
+    size_t getSz();
+
+    void dump();
 };
 
 template <class T>
@@ -74,24 +103,56 @@ template <class T>
 void AKQueue<T>::push(T arg){
     if(begin == end && !empty()) throw std::runtime_error("Queue overflow\n");
 
-    *end = arg;
-    end  = ptrInc(end);
+//    EnterCriticalSection(&CriticalSection);
+    {
+        Lock lck(&CriticalSection);
 
-    isEmpty = 0;
+        *end = arg;
+        end  = ptrInc(end);
+
+        isEmpty = 0;
+    }
 }
 
 template <class T>
 T AKQueue<T>::pop(){
-    T retVal = *begin;
+    {
+        Lock lck(&CriticalSection);
 
-    begin = ptrInc(begin);
+        T retVal = *begin;
 
-    isEmpty = begin == end;
+        begin = ptrInc(begin);
 
-    return retVal;
+        isEmpty = begin == end;
+
+        return retVal;
+    }
+}
+
+template <class T>
+T* AKQueue<T>::getBegin(){
+    return begin;
+}
+
+template <class T>
+T* AKQueue<T>::getEnd(){
+    return end;
+}
+
+template <class T>
+T* AKQueue<T>::getBuf(){
+    return buf;
+}
+
+template <class T>
+size_t AKQueue<T>::getSz(){
+    return sz;
 }
 
 template <class T>
 bool AKQueue<T>::empty(){
     return isEmpty;
 }
+
+
+
